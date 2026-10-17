@@ -1,6 +1,6 @@
 # CachePilot LLM Gateway
 
-An LLM gateway with exact and semantic caching. The project will measure when prompt reuse is safe and how much latency and estimated cost it can save.
+An LLM gateway with exact-response caching, per-key rate limiting, and usage logging. Semantic caching is evaluated offline to measure when prompt reuse is safe and how much latency and estimated cost it could save.
 
 ## Run locally
 
