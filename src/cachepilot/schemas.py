@@ -42,3 +42,18 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: list[ChatCompletionChoice]
     usage: TokenUsage
+
+
+class ProviderUsage(BaseModel):
+    name: str
+    requests: int
+
+
+class AnalyticsSummary(BaseModel):
+    total_requests: int
+    cache_hits: int
+    cache_hit_rate_percent: float
+    average_latency_ms: float | None
+    estimated_cost_usd: float | None
+    estimated_cost_saved_usd: float | None
+    providers: list[ProviderUsage]

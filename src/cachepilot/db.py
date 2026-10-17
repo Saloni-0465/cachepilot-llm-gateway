@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Float, Integer, Numeric, String, create_engine, func, text
+from sqlalchemy import DateTime, Float, Integer, Numeric, String, case, create_engine, func, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 DATABASE_URL = os.getenv(
@@ -89,3 +89,59 @@ def record_request(
                 http_status=http_status,
             )
         )
+
+
+def get_analytics_summary(tenant_key_hash: str) -> dict[str, object]:
+    """Summarize persisted request metadata for one authenticated tenant."""
+    with SessionLocal() as session:
+        totals = session.execute(
+            select(
+                func.count(RequestLog.id),
+                func.coalesce(
+                    func.sum(case((RequestLog.cache_status == "hit", 1), else_=0)), 0
+                ),
+                func.avg(RequestLog.latency_ms),
+                func.sum(RequestLog.estimated_cost_usd),
+                func.count(RequestLog.estimated_cost_usd),
+                func.sum(RequestLog.estimated_cost_saved_usd),
+                func.count(RequestLog.estimated_cost_saved_usd),
+            ).where(RequestLog.tenant_key_hash == tenant_key_hash)
+        ).one()
+        provider_rows = session.execute(
+            select(RequestLog.provider_used, func.count(RequestLog.id))
+            .where(RequestLog.tenant_key_hash == tenant_key_hash)
+            .group_by(RequestLog.provider_used)
+            .order_by(RequestLog.provider_used)
+        ).all()
+
+    total_requests = int(totals[0])
+    cache_hits = int(totals[1])
+    average_latency = totals[2]
+    estimated_cost = totals[3]
+    known_cost_rows = int(totals[4])
+    estimated_savings = totals[5]
+    known_savings_rows = int(totals[6])
+    return {
+        "total_requests": total_requests,
+        "cache_hits": cache_hits,
+        "cache_hit_rate_percent": (
+            round(cache_hits / total_requests * 100, 2) if total_requests else 0.0
+        ),
+        "average_latency_ms": (
+            round(float(average_latency), 2) if average_latency is not None else None
+        ),
+        "estimated_cost_usd": (
+            float(estimated_cost)
+            if total_requests and known_cost_rows == total_requests
+            else None
+        ),
+        "estimated_cost_saved_usd": (
+            float(estimated_savings)
+            if total_requests and known_savings_rows == total_requests
+            else None
+        ),
+        "providers": [
+            {"name": provider, "requests": int(count)}
+            for provider, count in provider_rows
+        ],
+    }

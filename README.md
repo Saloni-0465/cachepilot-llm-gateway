@@ -68,6 +68,10 @@ PostgreSQL stores request metadata in the `request_logs` table: request ID, a ha
 
 `X-Usage-Log: RECORDED` means the metadata was persisted. If PostgreSQL is unavailable while handling a request, the completion still returns and the header is `X-Usage-Log: UNAVAILABLE`; the API log records the failure.
 
+## Local usage dashboard
+
+With the API and PostgreSQL running, open [http://127.0.0.1:8000/dashboard](http://127.0.0.1:8000/dashboard). Enter the same `CACHEPILOT_API_KEY` used by the server, then select **Load dashboard**. The page shows total requests, cache-hit rate, average latency, provider usage, estimated provider cost, and estimated cost avoided. The dashboard page itself is public, but its analytics endpoint requires bearer-key authentication and returns aggregates scoped to that key. The key is kept in page memory and is not persisted by the dashboard.
+
 
 ## Semantic-cache safety experiment
 

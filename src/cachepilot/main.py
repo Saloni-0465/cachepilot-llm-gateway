@@ -8,18 +8,20 @@ from time import perf_counter, time
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Response, status
+from fastapi.responses import HTMLResponse
 from redis.exceptions import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 
 from cachepilot.auth import require_api_key
 from cachepilot.cache.exact import ExactResponseCache
-from cachepilot.db import initialize_database, record_request
+from cachepilot.db import get_analytics_summary, initialize_database, record_request
+from cachepilot.dashboard import dashboard_page
 from cachepilot.pricing import estimate_cost_usd
 from cachepilot.providers.base import LLMProvider, ProviderError
 from cachepilot.providers.mock import MockProvider
 from cachepilot.providers.openai import OpenAIProvider
 from cachepilot.rate_limit import enforce_rate_limit
-from cachepilot.schemas import ChatCompletionRequest, ChatCompletionResponse
+from cachepilot.schemas import AnalyticsSummary, ChatCompletionRequest, ChatCompletionResponse
 
 logger = logging.getLogger("cachepilot")
 
@@ -58,6 +60,12 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+def dashboard() -> HTMLResponse:
+    """Serve the local dashboard shell; its data endpoint requires a bearer key."""
+    return dashboard_page()
+
+
 protected = APIRouter(prefix="/v1", dependencies=[Depends(require_api_key)])
 
 
@@ -65,6 +73,25 @@ protected = APIRouter(prefix="/v1", dependencies=[Depends(require_api_key)])
 def gateway_status() -> dict[str, str]:
     """Temporary protected route for checking API-key authentication."""
     return {"status": "authenticated"}
+
+
+@protected.get(
+    "/analytics/summary",
+    response_model=AnalyticsSummary,
+    tags=["analytics"],
+)
+def analytics_summary(
+    tenant_scope: str = Depends(require_api_key),
+) -> dict[str, object]:
+    """Return persisted aggregate usage for the authenticated tenant."""
+    try:
+        return get_analytics_summary(tenant_scope)
+    except SQLAlchemyError as exc:
+        logger.exception("Failed to load gateway analytics")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Usage analytics are temporarily unavailable",
+        ) from exc
 
 
 @protected.post(
