@@ -21,6 +21,17 @@ curl http://127.0.0.1:8000/v1/status \
 
 The environment variable is a local development configuration. The planned persistent key management will store hashed keys in the database.
 
+## Automated tests
+
+Install the development dependencies and run the suite with:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+The tests use in-memory Redis and request-log fakes; they do not require Docker or call an external LLM provider.
+
 ## Try a mock chat completion
 
 The first chat endpoint uses a local mock provider, so it makes no external model calls and has no provider cost. With the server running and `CACHEPILOT_API_KEY` set in that terminal, send a request from another terminal:

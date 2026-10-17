@@ -26,3 +26,4 @@ testpaths = ["tests"]
 
 [project.optional-dependencies]
 semantic = ["sentence-transformers>=3.0,<6.0"]
+dev = ["pytest>=8,<10", "httpx>=0.27,<1.0"]
