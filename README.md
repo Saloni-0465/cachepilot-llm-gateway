@@ -31,6 +31,7 @@ python -m pytest
 ```
 
 The tests use in-memory Redis fakes and a temporary SQLite database; they do not require Docker or call an external LLM provider.
+GitHub Actions runs the suite on pushes and pull requests to `main`.
 
 ## Try a mock chat completion
 
