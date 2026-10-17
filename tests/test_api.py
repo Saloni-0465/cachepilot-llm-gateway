@@ -1,5 +1,7 @@
 """HTTP-level tests for CachePilot's gateway behavior."""
 
+import hashlib
+
 from sqlalchemy.exc import SQLAlchemyError
 
 
@@ -103,3 +105,66 @@ def test_database_outage_does_not_discard_completion(gateway: dict[str, object],
     assert response.json()["choices"][0]["message"]["content"] == (
         "Mock response: Hello, CachePilot"
     )
+
+
+def test_dashboard_page_is_public_and_contains_key_input(
+    gateway: dict[str, object],
+) -> None:
+    response = gateway["client"].get("/dashboard")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "CachePilot API key" in response.text
+
+
+def test_analytics_summary_requires_authentication(gateway: dict[str, object]) -> None:
+    response = gateway["client"].get("/v1/analytics/summary")
+
+    assert response.status_code == 401
+
+
+def test_analytics_summary_is_scoped_to_authenticated_key(
+    gateway: dict[str, object], monkeypatch
+) -> None:
+    from cachepilot import main
+
+    calls: list[str] = []
+
+    def summarize(tenant_scope: str) -> dict[str, object]:
+        calls.append(tenant_scope)
+        return {
+            "total_requests": 3,
+            "cache_hits": 1,
+            "cache_hit_rate_percent": 33.33,
+            "average_latency_ms": 4.5,
+            "estimated_cost_usd": 0.0,
+            "estimated_cost_saved_usd": 0.0,
+            "providers": [{"name": "mock", "requests": 3}],
+        }
+
+    monkeypatch.setattr(main, "get_analytics_summary", summarize)
+    response = gateway["client"].get(
+        "/v1/analytics/summary", headers=_headers()
+    )
+
+    expected_scope = hashlib.sha256(b"test-gateway-key").hexdigest()
+    assert response.status_code == 200
+    assert response.json()["total_requests"] == 3
+    assert calls == [expected_scope]
+
+
+def test_analytics_database_failure_returns_service_unavailable(
+    gateway: dict[str, object], monkeypatch
+) -> None:
+    from cachepilot import main
+
+    def unavailable(_tenant_scope: str) -> dict[str, object]:
+        raise SQLAlchemyError("test database unavailable")
+
+    monkeypatch.setattr(main, "get_analytics_summary", unavailable)
+    response = gateway["client"].get(
+        "/v1/analytics/summary", headers=_headers()
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Usage analytics are temporarily unavailable"

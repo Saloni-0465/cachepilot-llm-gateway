@@ -30,7 +30,7 @@ python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
-The tests use in-memory Redis and request-log fakes; they do not require Docker or call an external LLM provider.
+The tests use in-memory Redis fakes and a temporary SQLite database; they do not require Docker or call an external LLM provider.
 
 ## Try a mock chat completion
 
