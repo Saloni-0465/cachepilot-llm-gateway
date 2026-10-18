@@ -1,4 +1,30 @@
 services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      CACHEPILOT_API_KEY: ${CACHEPILOT_API_KEY:?Copy .env.example to .env and set CACHEPILOT_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+psycopg://cachepilot:cachepilot_local_dev@postgres:5432/cachepilot
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-300}
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-60}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      OPENAI_INPUT_PRICE_USD_PER_1M_TOKENS: ${OPENAI_INPUT_PRICE_USD_PER_1M_TOKENS:-}
+      OPENAI_OUTPUT_PRICE_USD_PER_1M_TOKENS: ${OPENAI_OUTPUT_PRICE_USD_PER_1M_TOKENS:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     ports:

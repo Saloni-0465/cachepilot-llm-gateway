@@ -21,6 +21,18 @@ curl http://127.0.0.1:8000/v1/status \
 
 The environment variable is a local development configuration. The planned persistent key management will store hashed keys in the database.
 
+## Run the full demo with Docker
+
+Copy `.env.example` to `.env`, set a private local value for `CACHEPILOT_API_KEY`, then start the API, Redis, and PostgreSQL together:
+
+```bash
+cp .env.example .env
+# Edit .env and replace CACHEPILOT_API_KEY with a long random value.
+docker compose up --build
+```
+
+When the containers are healthy, open [http://127.0.0.1:8000/dashboard](http://127.0.0.1:8000/dashboard). Enter the key from `.env` in the dashboard. The mock provider is the default and makes no paid model calls. Stop the stack with `Ctrl+C`; run `docker compose down` to remove the containers while preserving the PostgreSQL volume. If Uvicorn is already using port 8000, stop that local server before starting the Docker stack.
+
 ## Automated tests
 
 Install the development dependencies and run the suite with:
