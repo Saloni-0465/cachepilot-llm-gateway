@@ -127,7 +127,7 @@ def create_chat_completion(
         provider_used = "cache"
         estimated_cost_usd = Decimal("0")
         estimated_cost_saved_usd = estimate_cost_usd(
-            active_provider.name, completion.usage
+            active_provider.name, request.model, completion.usage
         )
     else:
         try:
@@ -142,7 +142,7 @@ def create_chat_completion(
         response.headers["X-Provider"] = active_provider.name
         provider_used = active_provider.name
         estimated_cost_usd = estimate_cost_usd(
-            active_provider.name, completion.usage
+            active_provider.name, request.model, completion.usage
         )
         estimated_cost_saved_usd = Decimal("0")
 
