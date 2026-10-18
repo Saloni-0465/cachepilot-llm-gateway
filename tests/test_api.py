@@ -37,7 +37,6 @@ def test_chat_completion_rejects_missing_or_invalid_api_key(
     assert invalid.status_code == 401
     assert invalid.headers["www-authenticate"] == "Bearer"
 
-
 def test_identical_request_misses_then_hits_cache(gateway: dict[str, object]) -> None:
     client = gateway["client"]
 
@@ -74,6 +73,28 @@ def test_rate_limit_returns_429_after_configured_limit(
     assert rejected.status_code == 429
     assert rejected.headers["ratelimit-remaining"] == "0"
     assert int(rejected.headers["retry-after"]) > 0
+    assert len(gateway["recorded"]) == 2
+    assert gateway["recorded"][1]["http_status"] == 429
+
+
+def test_provider_failure_is_logged_with_502(gateway: dict[str, object], monkeypatch) -> None:
+    from cachepilot import main
+    from cachepilot.providers.base import ProviderError
+
+    class FailingProvider:
+        name = "mock"
+
+        def complete(self, _request):
+            raise ProviderError("simulated provider failure")
+
+    monkeypatch.setattr(main, "active_provider", FailingProvider())
+    response = gateway["client"].post(
+        "/v1/chat/completions", headers=_headers(), json=_payload()
+    )
+
+    assert response.status_code == 502
+    assert len(gateway["recorded"]) == 1
+    assert gateway["recorded"][0]["http_status"] == 502
 
 
 def test_redis_outage_fails_open_and_is_reported(gateway: dict[str, object]) -> None:
@@ -134,6 +155,7 @@ def test_analytics_summary_is_scoped_to_authenticated_key(
         calls.append(tenant_scope)
         return {
             "total_requests": 3,
+            "failed_requests": 0,
             "cache_hits": 1,
             "cache_hit_rate_percent": 33.33,
             "average_latency_ms": 4.5,

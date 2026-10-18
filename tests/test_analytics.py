@@ -90,6 +90,7 @@ def test_summary_aggregates_only_the_requested_tenant(analytics_session) -> None
 
     assert summary == {
         "total_requests": 2,
+        "failed_requests": 0,
         "cache_hits": 1,
         "cache_hit_rate_percent": 50.0,
         "average_latency_ms": 6.0,
@@ -135,11 +136,32 @@ def test_summary_marks_cost_unknown_when_any_request_lacks_pricing(
     assert summary["estimated_cost_saved_usd"] is None
 
 
+def test_summary_counts_failed_http_requests(analytics_session) -> None:
+    with analytics_session.begin() as session:
+        failed = _row(
+            request_id="failed-1",
+            tenant="tenant-a",
+            provider="openai",
+            cache_status="miss",
+            latency_ms=12,
+            cost=None,
+            saved=None,
+        )
+        failed.http_status = 502
+        session.add(failed)
+
+    summary = db.get_analytics_summary("tenant-a")
+
+    assert summary["total_requests"] == 1
+    assert summary["failed_requests"] == 1
+
+
 def test_summary_for_tenant_without_requests_is_empty(analytics_session) -> None:
     summary = db.get_analytics_summary("no-requests")
 
     assert summary == {
         "total_requests": 0,
+        "failed_requests": 0,
         "cache_hits": 0,
         "cache_hit_rate_percent": 0.0,
         "average_latency_ms": None,

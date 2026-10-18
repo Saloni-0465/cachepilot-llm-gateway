@@ -98,7 +98,6 @@ def analytics_summary(
     "/chat/completions",
     response_model=ChatCompletionResponse,
     tags=["gateway"],
-    dependencies=[Depends(enforce_rate_limit)],
 )
 def create_chat_completion(
     request: ChatCompletionRequest,
@@ -107,6 +106,20 @@ def create_chat_completion(
 ) -> ChatCompletionResponse:
     """Return an OpenAI-shaped completion with exact caching and usage logging."""
     started_at = perf_counter()
+    try:
+        enforce_rate_limit(response, tenant_scope)
+    except HTTPException as exc:
+        _record_failed_request(
+            request=request,
+            response=response,
+            tenant_scope=tenant_scope,
+            provider=active_provider.name,
+            cache_status="rejected",
+            started_at=started_at,
+            http_status=exc.status_code,
+        )
+        raise
+
     cache_available = True
     try:
         cached_json = exact_cache.get(tenant_scope, active_provider.name, request)
@@ -134,6 +147,15 @@ def create_chat_completion(
             completion = active_provider.complete(request)
         except ProviderError as exc:
             logger.exception("Configured provider failed")
+            _record_failed_request(
+                request=request,
+                response=response,
+                tenant_scope=tenant_scope,
+                provider=active_provider.name,
+                cache_status=cache_status,
+                started_at=started_at,
+                http_status=status.HTTP_502_BAD_GATEWAY,
+            )
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="The configured LLM provider could not complete the request",
@@ -181,6 +203,38 @@ def create_chat_completion(
         response.headers["X-Usage-Log"] = "UNAVAILABLE"
 
     return completion
+
+
+def _record_failed_request(
+    *,
+    request: ChatCompletionRequest,
+    response: Response,
+    tenant_scope: str,
+    provider: str,
+    cache_status: str,
+    started_at: float,
+    http_status: int,
+) -> None:
+    """Persist failed-request metadata without storing prompt or response text."""
+    response.headers["X-Usage-Log"] = "RECORDED"
+    try:
+        record_request(
+            request_id=f"req-{uuid4().hex}",
+            tenant_key_hash=tenant_scope,
+            model=request.model,
+            provider_used=provider,
+            cache_status=cache_status,
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            latency_ms=(perf_counter() - started_at) * 1000,
+            estimated_cost_usd=None,
+            estimated_cost_saved_usd=None,
+            http_status=http_status,
+        )
+    except SQLAlchemyError:
+        logger.exception("Failed to persist failed request with HTTP %s", http_status)
+        response.headers["X-Usage-Log"] = "UNAVAILABLE"
 
 
 app.include_router(protected)

@@ -30,7 +30,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     button:disabled { opacity:.65; cursor:wait; }
     .privacy { color:var(--muted); font-size:12px; margin:8px 2px 25px; }
     .message { min-height:22px; color:#b42318; font-size:13px; margin:-16px 2px 18px; }
-    .grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:15px; }
+    .grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:15px; }
     .card,.panel { background:var(--paper); border:1px solid var(--line); border-radius:13px; box-shadow:0 3px 12px #152b4508; }
     .card { padding:19px; min-height:123px; }
     .label { color:var(--muted); font-size:13px; font-weight:600; }
@@ -60,6 +60,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     <div id="message" class="message" role="status" aria-live="polite"></div>
     <section class="grid" aria-label="Usage metrics">
       <article class="card"><div class="label">Total requests</div><div class="value" id="total">—</div></article>
+      <article class="card"><div class="label">Failed requests</div><div class="value" id="failed">—</div></article>
       <article class="card"><div class="label">Cache hit rate</div><div class="value" id="hit-rate">—</div></article>
       <article class="card"><div class="label">Average latency</div><div class="value" id="latency">—</div></article>
       <article class="card"><div class="label">Estimated provider cost</div><div class="value" id="cost">—</div></article>
@@ -91,6 +92,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         if (!response.ok) throw new Error(`Could not load analytics (HTTP ${response.status}).`);
         const data = await response.json();
         show('total', number.format(data.total_requests));
+        show('failed', number.format(data.failed_requests));
         show('hit-rate', `${data.cache_hit_rate_percent.toFixed(1)}%`);
         show('latency', data.average_latency_ms === null ? '—' : `${number.format(data.average_latency_ms)} ms`);
         show('cost', money(data.estimated_cost_usd));

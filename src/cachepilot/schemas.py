@@ -51,6 +51,7 @@ class ProviderUsage(BaseModel):
 
 class AnalyticsSummary(BaseModel):
     total_requests: int
+    failed_requests: int = 0
     cache_hits: int
     cache_hit_rate_percent: float
     average_latency_ms: float | None

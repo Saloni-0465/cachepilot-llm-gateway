@@ -2,11 +2,10 @@
 
 import os
 
-from fastapi import Depends, HTTPException, Response, status
+from fastapi import HTTPException, Response, status
 from redis import Redis
 from redis.exceptions import RedisError
 
-from cachepilot.auth import require_api_key
 
 _INCREMENT_WINDOW = """
 local count = redis.call('INCR', KEYS[1])
@@ -31,7 +30,7 @@ _redis = _make_client()
 
 def enforce_rate_limit(
     response: Response,
-    tenant_scope: str = Depends(require_api_key),
+    tenant_scope: str,
 ) -> None:
     """Allow a fixed number of requests per tenant per time window.
 

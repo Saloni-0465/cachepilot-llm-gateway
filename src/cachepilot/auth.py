@@ -22,7 +22,7 @@ def require_api_key(
         )
 
     if credentials is None or not hmac.compare_digest(
-        credentials.credentials, expected_key
+        credentials.credentials.encode("utf-8"), expected_key.encode("utf-8")
     ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

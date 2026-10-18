@@ -105,6 +105,7 @@ def get_analytics_summary(tenant_key_hash: str) -> dict[str, object]:
                 func.count(RequestLog.estimated_cost_usd),
                 func.sum(RequestLog.estimated_cost_saved_usd),
                 func.count(RequestLog.estimated_cost_saved_usd),
+                func.sum(case((RequestLog.http_status >= 400, 1), else_=0)),
             ).where(RequestLog.tenant_key_hash == tenant_key_hash)
         ).one()
         provider_rows = session.execute(
@@ -121,8 +122,10 @@ def get_analytics_summary(tenant_key_hash: str) -> dict[str, object]:
     known_cost_rows = int(totals[4])
     estimated_savings = totals[5]
     known_savings_rows = int(totals[6])
+    failed_requests = int(totals[7] or 0)
     return {
         "total_requests": total_requests,
+        "failed_requests": failed_requests,
         "cache_hits": cache_hits,
         "cache_hit_rate_percent": (
             round(cache_hits / total_requests * 100, 2) if total_requests else 0.0
